@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+    <head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport" />
+    <link rel="alternate icon" type="image/png" href="/img/favicon.png">
+    <title>Lin YouMing&#39;s blogs | </title>
+    
+<link rel="stylesheet" href="/css/reset.css">
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    
+<link rel="stylesheet" href="/css/markdown.css">
+
+    
+<link rel="stylesheet" href="/css/fonts.css">
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+    <body>
+        <div class="paper">
+            <div class="paper-main">
+                
+                    <div class="post-header">
+    <a class="logo" href="/">Lin YouMing&#39;s blogs</a>
+    <a class="go-home" href="/">
+        <svg width="8" height="14" viewBox="0 0 8 14">
+            <path d="M7 1L1 7l6 6" stroke="#000" stroke-width="2" fill="none" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </a>
+</div>
+                
+                <div class="post-main">
+
+    
+    
+        <div class="post-main-title">
+            BI报表项目
+        </div>
+        <div class="post-meta">
+            2023-08-18
+        </div>
+        <div class="post-md">
+            <h2 id="一、项目背景"><a href="#一、项目背景" class="headerlink" title="一、项目背景"></a>一、项目背景</h2><p>​		城投集团下主营业务九家驾校，每个驾校都是独立的系统，系统开发语言多样化有java与.net数据库使用有mysql与sqlserver，驾校系统数据不互通，数据可视性差，需要数据给到集团领导做重大决策，故而开发BI数据报表系统。</p>
+<h2 id="二、系统描述"><a href="#二、系统描述" class="headerlink" title="二、系统描述"></a>二、系统描述</h2><p>​		系统使用阿里云DTS服务同步mysql 与sqlserver数据写入阿里云数仓AnalyticDB MySql中并创建九个库对应九家驾校数据，查询分类有招生数据、教务教学数据、库存数据。	</p>
+<p>​		该项目大量使用CompletableFuture多线程查询提高响应速度，因查询场景复杂创建两个线程池做线程隔离防止死锁，最终将所有查询接口RT控制在1s以内(有复杂多表关联查询sql)。</p>
+<h2 id="三、部分原型图"><a href="#三、部分原型图" class="headerlink" title="三、部分原型图"></a>三、部分原型图</h2><p><img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/bi/1.png"></p>
+<img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/bi/2.png"/>
+
+<h2 id="四、部分代码"><a href="#四、部分代码" class="headerlink" title="四、部分代码"></a>四、部分代码</h2><img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/bi/3.png"/>
+
+<img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/bi/4.png"/>
+
+<img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/bi/5.png"/>
+
+<h2 id="五、总结"><a href="#五、总结" class="headerlink" title="五、总结"></a>五、总结</h2><p>​		设计之初就有想过避免大量if else，有考虑过策略模式，一个驾校一个具体实现类，但由于该项目还有一小部分是由另一个同事开发，避免造成沟通冲突吧，还是采用这种功能分离的方式，建立枚举，反射去调用，mapper里面方法名字定了规范，按规范调用代码赏心悦目，少写许多无用代码。</p>
+<p>​		项目大概总周期长达半年，从v1.0到v1.5算是把管理层需要的查询方式全部做完了，中间穿插了两员名片一类小需求迭代，BI包含APP端查询，后台查询，我的职责就是将其他人给到我的sql查询出的结果做拼装，怎样让查询效率更高（好让集团领导夸奖我们部门CTO），也是该项目让我对CompletableFuture更加熟悉，以及对线程池的配置怎么样配置最优。</p>
+<p>​	</p>
+
+        </div>
+
+    
+
+</div>
+                <div class="footer">
+    <span>Copyright © 2022 Lin YouMing&#39;s blogs</span>
+    <!-- <span>Theme Designed By <a target="_blank" href="https://zheli.design/one-paper">這李設計</a></span> -->
+</div>
+
+
+<link rel="stylesheet" href="/css/a11y-dark.min.css">
+
+
+<script src="/js/highlight.min.js"></script>
+
+
+<script src="/js/highlightjs-line-numbers.js"></script>
+
+
+<script>
+    hljs.initHighlightingOnLoad();
+    hljs.initLineNumbersOnLoad();
+</script>
+
+            </div>
+        </div>
+    </body>
+</html>

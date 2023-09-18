@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+    <head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport" />
+    <link rel="alternate icon" type="image/png" href="/img/favicon.png">
+    <title>Lin YouMing&#39;s blogs | </title>
+    
+<link rel="stylesheet" href="/css/reset.css">
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    
+<link rel="stylesheet" href="/css/markdown.css">
+
+    
+<link rel="stylesheet" href="/css/fonts.css">
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+    <body>
+        <div class="paper">
+            <div class="paper-main">
+                
+                    <div class="post-header">
+    <a class="logo" href="/">Lin YouMing&#39;s blogs</a>
+    <a class="go-home" href="/">
+        <svg width="8" height="14" viewBox="0 0 8 14">
+            <path d="M7 1L1 7l6 6" stroke="#000" stroke-width="2" fill="none" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </a>
+</div>
+                
+                <div class="post-main">
+
+    
+    
+        <div class="post-main-title">
+            聊聊MySQL全表扫描
+        </div>
+        <div class="post-meta">
+            2022-01-10
+        </div>
+        <div class="post-md">
+            <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>查询优化器是 MySQL 的核心子系统之一，成本计算又是查询优化器的核心逻辑。</p>
+<p>全表扫描成本作为参照物，用于和表的其它访问方式的成本做对比。任何一种访问方式，只要成本超过了全表扫描成本，就不会被使用。</p>
+<p>基于全表扫描成本的重要地位，要讲清楚 MySQL 的成本计算逻辑，从全表扫描成本计算开始是个不错的选择。</p>
+<blockquote>
+<p>本文内容基于 MySQL 8.0.29 源码。</p>
+</blockquote>
+<p><strong>目录</strong></p>
+<ul>
+<li><ol>
+<li>概述</li>
+</ol>
+</li>
+<li><ol start="2">
+<li>计算公式</li>
+</ol>
+</li>
+<li><ol start="3">
+<li>统计信息</li>
+</ol>
+</li>
+<li><ol start="4">
+<li>数据页在内存中的比例</li>
+</ol>
+</li>
+<li><ol start="5">
+<li>成本常数</li>
+</ol>
+</li>
+<li><ol start="6">
+<li>总结</li>
+</ol>
+</li>
+</ul>
+<p><strong>正文</strong></p>
+<h2 id="1-概述"><a href="#1-概述" class="headerlink" title="1. 概述"></a>1. 概述</h2><p>我们先来看一下代码里成本计算的定义：</p>
+<pre><code>class Cost_estimate &#123;
+ private:
+  // cost of I/O operations
+  double io_cost;
+  // cost of CPU operations
+  double cpu_cost;
+  // cost of remote operations
+  double import_cost;
+  // memory used (bytes)
+  double mem_cost;
+  ......
+&#125;
+</code></pre>
+<p>从上面代码可以看到，MySQL 成本计算模型定义了四种成本：</p>
+<ul>
+<li><code>IO 成本</code>：从磁盘或内存读取数据页的成本。</li>
+<li><code>CPU 成本</code>：访问记录需要消耗的 CPU 成本。</li>
+<li><code>导入成本</code>：这一项直到 MySQL 8.0.29 都还没有被使用，先忽略。</li>
+<li><code>内存成本</code>：这一项指的是占用内存字节数，计算 MRR（Multi Range Read）方式读取数据的成本时才会用到，也先忽略。</li>
+</ul>
+<p>全表扫描的成本就只剩 IO 成本、CPU 成本这两项了。</p>
+<h2 id="2-计算公式"><a href="#2-计算公式" class="headerlink" title="2. 计算公式"></a>2. 计算公式</h2><p>我们先从整体计算公式开始，然后逐步拆解。</p>
+<p><strong>全表扫描成本 &#x3D; <code>io_cost</code> + 1.1 + <code>cpu_cost</code> + 1</strong>。</p>
+<p>io_cost 后面的 <code>1.1</code> 是硬编码直接加到 IO 成本上的；cpu_cost 后面的 <code>1</code> 也是硬编码的，直接加到 CPU 成本上。代码里长这样：</p>
+<pre><code>int test_quick_select(...) &#123;
+  ......
+  double scan_time =
+    cost_model-&gt;row_evaluate_cost(static_cast&lt;double&gt;(records)) 
+    + 1 /* cpu_cost 后面的 + 1 */; 
+  Cost_estimate cost_est = table-&gt;file-&gt;table_scan_cost();
+  
+  // io_cost 后面的 + 1.1
+  cost_est.add_io(1.1);
+  ......
+&#125;
+</code></pre>
+<p>关于这两个硬编码的值，代码里没有注释为什么要加，不过它们是个固定值，不影响我们理解成本计算逻辑，先忽略它们。</p>
+<p><strong>io_cost &#x3D; <code>cluster_page_count</code> * <code>avg_single_page_cost</code>。</strong></p>
+<p>cluster_page_count 是<code>主键索引数据页数量</code>，从表的统计信息中得到，在<code>统计信息</code>小节会介绍。</p>
+<p>avg_single_page_cost 是<code>读取一个数据页的平均成本</code>，通过计算得到，公式如下：</p>
+<p><strong>avg_single_page_cost &#x3D; <code>pages_in_memory_percent</code> * 0.25 + <code>pages_on_disk_percent</code> * 1.0</strong>。</p>
+<p>pages_in_memory_percent 是主键索引已经<code>加载到 Buffer Pool</code> 中的叶结点占<code>所有</code>叶结点的<code>比例</code>，用小数表示（取值范围 0.0 ~ 1.0），例如：80% 表示为 0.8。<code>数据页在内存中的比例</code>小节会介绍具体计算逻辑。</p>
+<p>pages_on_disk_percent 是主键索引<code>在磁盘文件中</code>的叶结点占<code>所有</code>叶结点的<code>比例</code>，通过 <code>1 - pages_in_memory_percent</code> 计算得到。</p>
+<p><code>0.25</code> 是成本常数 <code>memory_block_read_cost</code> 的默认值，表示从 Buffer Pool 中的一个数据页读取数据的成本。</p>
+<p><code>1.0</code> 是成本常数 <code>io_block_read_cost</code> 的默认值，表示把磁盘文件中的一个数据页加载到 Buffer Pool 的成本，<code>加上</code>从 Buffer Pool 中的该数据页读取数据的成本。</p>
+<p><strong>cpu_cost &#x3D; n_rows * 0.1</strong>。</p>
+<p>n_rows 是表中记录的数量，从表的统计信息中得到，在<code>统计信息</code>小节会介绍。</p>
+<p><code>0.1</code> 是成本常数 <code>row_evaluate_cost</code> 的默认值，表示访问一条记录的 CPU 成本。</p>
+<p>有了上面这些公式，我们通过一个具体例子走一遍全表扫描成本计算的过程。</p>
+<p>假设一个表有 600 条记录，主键索引数据页的数量为 3，主键索引数据页已经<code>全部</code>加载到 Buffer Pool（<code>pages_in_memory_percent = 1.0</code>），下面我们开始计算过程：</p>
+<p>pages_on_disk_percent &#x3D; 1 - <code>pages_in_memory_percent</code>(1.0) &#x3D; <strong>0.0</strong>。</p>
+<p>avg_single_page_cost &#x3D; <code>pages_in_memory_percent</code>(1.0) * <code>0.25</code> + <code>pages_on_disk_percent</code>(0.0) * <code>1.0</code> &#x3D; <strong>0.25</strong>。</p>
+<p>io_cost &#x3D; <code>cluster_page_count</code>(3) * <code>avg_single_page_cost</code>(0.25) &#x3D; <strong>0.75</strong>。</p>
+<p>cpu_cost &#x3D; <code>n_rows</code>(600) * 0.1 &#x3D; <strong>60</strong>。</p>
+<p>全表扫描成本 &#x3D; <code>io_cost</code>(0.75) + <code>1.1</code> + <code>cpu_cost</code>(60) + <code>1</code> &#x3D; <strong>62.85</strong>。</p>
+<h2 id="3-统计信息"><a href="#3-统计信息" class="headerlink" title="3. 统计信息"></a>3. 统计信息</h2><p>全表扫描成本计算过程中，用到了<code>主键索引数据页数量</code>、<code>表中记录数量</code>，这两个数据都来源 InnoDB 的表统计信息。</p>
+<pre><code>SELECT
+  table_name, n_rows, clustered_index_size
+FROM mysql.innodb_table_stats
+WHERE database_name = &#39;sakila&#39;
+AND table_name = &#39;city&#39;
+
++------------+--------+----------------------+
+| table_name | n_rows | clustered_index_size |
++------------+--------+----------------------+
+| city       | 600    | 3                    |
++------------+--------+----------------------+
+
+-- 也可以通过这个 SQL 查询
+SELECT
+  NAME, NUM_ROWS, CLUST_INDEX_SIZE 
+FROM information_schema.INNODB_TABLESTATS
+WHERE NAME = &#39;sakila/city&#39;
+
++-------------+----------+------------------+
+| NAME        | NUM_ROWS | CLUST_INDEX_SIZE |
++-------------+----------+------------------+
+| sakila/city | 600      | 3                |
++-------------+----------+------------------+
+</code></pre>
+<p><code>clustered_index_size</code> 就是主键索引数据页数量，<code>n_rows</code> 是表中记录数量。</p>
+<h2 id="4-数据页在内存中的比例"><a href="#4-数据页在内存中的比例" class="headerlink" title="4. 数据页在内存中的比例"></a>4. 数据页在内存中的比例</h2><p><strong>avg_single_page_cost &#x3D; <code>pages_in_memory_percent</code> * 0.25 + <code>pages_on_disk_percent</code> * 1.0</strong>。</p>
+<p>上面的公式用于计算<code>读取一个数据页的平均成本</code>，pages_in_memory_percent 是主键索引已经<code>加载到 Buffer Pool 中</code>的叶结点占<code>所有</code>叶结点的比例。</p>
+<p>计算代码如下：</p>
+<pre><code>inline double index_pct_cached(const dict_index_t *index) &#123;
+  // 索引叶结点数量
+  const ulint n_leaf = index-&gt;stat_n_leaf_pages;
+  ......
+  // 已经加载到 Buffer Pool 中的叶结点数量
+  const uint64_t n_in_mem =
+      buf_stat_per_index-&gt;get(index_id_t(index-&gt;space, index-&gt;id));
+  // 已加载到 Buffer Pool 中的叶结点 [除以] 索引叶结点数量
+  const double ratio = static_cast&lt;double&gt;(n_in_mem) / n_leaf;
+  // 取值只能在 0.0 ~ 1.0 之间
+  return (std::max(std::min(ratio, 1.0), 0.0));
+&#125;
+</code></pre>
+<p>InnoDB 在内存中维护了一个哈希表（<code>buf_stat_per_index-&gt;m_store</code>），key 是表名，value 是表的主键索引已经加载到 Buffer Pool 中的叶子结点数量。</p>
+<p>每次从磁盘加载某个表的主键索引的一个叶子结点数据页到 Buffer Pool 中，该表在 <code>buf_stat_per_index-&gt;m_store</code> 中对应的 value 值就<code>加一</code>。</p>
+<p>从 Buffer Pool 的 LRU 链表淘汰某个表的主键索引叶子结点时，该表在 <code>buf_stat_per_index-&gt;m_store</code> 中对应的 value 值就<code>减一</code>。</p>
+<p>还有其它场景，buf_stat_per_index-&gt;m_store 中的 value 值也会发生变化，不展开了。</p>
+<h2 id="5-成本常数"><a href="#5-成本常数" class="headerlink" title="5. 成本常数"></a>5. 成本常数</h2><p>memory_block_read_cost 和 io_block_read_cost 这两个成本常数从系统表 <code>mysql.engine_cost</code> 中读取：</p>
+<pre><code>SELECT
+  cost_name, cost_value, default_value
+FROM mysql.engine_cost;
+
++------------------------+------------+---------------+
+| cost_name              | cost_value | default_value |
++------------------------+------------+---------------+
+| io_block_read_cost     | &lt;null&gt;     | 1.0           |
+| memory_block_read_cost | &lt;null&gt;     | 0.25          |
++------------------------+------------+---------------+
+</code></pre>
+<p>我们可以修改 <code>cost_value</code> 字段值，来调整 memory_block_read_cost 和 io_block_read_cost。</p>
+<p>row_evaluate_cost成本常数从系统表 <code>mysql.server_cost</code> 中读取：</p>
+<pre><code>SELECT
+  cost_name, cost_value, default_value
+FROM mysql.server_cost
+WHERE cost_name = &#39;row_evaluate_cost&#39;;
+
++-------------------+------------+---------------+
+| cost_name         | cost_value | default_value |
++-------------------+------------+---------------+
+| row_evaluate_cost | &lt;null&gt;     | 0.1           |
++-------------------+------------+---------------+
+</code></pre>
+<p>我们可以修改 <code>cost_value</code> 字段值，来调整 row_evaluate_cost。</p>
+<h2 id="6-总结"><a href="#6-总结" class="headerlink" title="6. 总结"></a>6. 总结</h2><p>计算全表扫描成本，最重要的无疑是这个公式：<strong>全表扫描成本 &#x3D; <code>io_cost</code> + 1.1 + <code>cpu_cost</code> + 1</strong>。</p>
+<p>io_cost 表示全表扫描 IO 成本，MySQL 会先计算读取一个数据页的平均成本，然后<code>乘以</code>主键索引的数据页数量，得到 IO 成本。</p>
+<p><code>计算读取一个数据页的平均成本</code>，关键是要知道主键索引已经加载到 Buffer Pool 中的<code>叶子结点数量</code>。InnoDB 通过在内存中维护一个哈希表（<code>buf_stat_per_index-&gt;m_store</code>）来记录这个数量。</p>
+<p>文章来源于一树一溪 ，作者操盛春</p>
+
+        </div>
+
+    
+
+</div>
+                <div class="footer">
+    <span>Copyright © 2022 Lin YouMing&#39;s blogs</span>
+    <!-- <span>Theme Designed By <a target="_blank" href="https://zheli.design/one-paper">這李設計</a></span> -->
+</div>
+
+
+<link rel="stylesheet" href="/css/a11y-dark.min.css">
+
+
+<script src="/js/highlight.min.js"></script>
+
+
+<script src="/js/highlightjs-line-numbers.js"></script>
+
+
+<script>
+    hljs.initHighlightingOnLoad();
+    hljs.initLineNumbersOnLoad();
+</script>
+
+            </div>
+        </div>
+    </body>
+</html>

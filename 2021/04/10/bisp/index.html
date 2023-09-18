@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+    <head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport" />
+    <link rel="alternate icon" type="image/png" href="/img/favicon.png">
+    <title>Lin YouMing&#39;s blogs | </title>
+    
+<link rel="stylesheet" href="/css/reset.css">
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    
+<link rel="stylesheet" href="/css/markdown.css">
+
+    
+<link rel="stylesheet" href="/css/fonts.css">
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+    <body>
+        <div class="paper">
+            <div class="paper-main">
+                
+                    <div class="post-header">
+    <a class="logo" href="/">Lin YouMing&#39;s blogs</a>
+    <a class="go-home" href="/">
+        <svg width="8" height="14" viewBox="0 0 8 14">
+            <path d="M7 1L1 7l6 6" stroke="#000" stroke-width="2" fill="none" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </a>
+</div>
+                
+                <div class="post-main">
+
+    
+    
+        <div class="post-main-title">
+            BISP项目杂记
+        </div>
+        <div class="post-meta">
+            2021-04-10
+        </div>
+        <div class="post-md">
+            <h2 id="一、前言"><a href="#一、前言" class="headerlink" title="一、前言"></a>一、前言</h2><p>​		大家好，这篇文章主要是记录一下自己个人的项目经历以及一些问题引发的思考，也是作者毕业后接触的第一个大型项目，记录一下这些年的成长。</p>
+<h2 id="二、项目背景"><a href="#二、项目背景" class="headerlink" title="二、项目背景"></a>二、项目背景</h2><p>​		目前作者服务于华大基因，所在IT部门负责华大基因的检测业务，包含无创产前、耳聋基因、全基因组、新冠等检测项目，检测项目五花八门，就不在此一一列举了。</p>
+<p>​		因部门内项目组划分为多个报告组、样本组等， BISP项目组主要负责对外部提供接口以及对集团内部其他部门提供接口。</p>
+<h2 id="三、项目介绍"><a href="#三、项目介绍" class="headerlink" title="三、项目介绍"></a>三、项目介绍</h2><p>​		</p>
+<p>​		整体流程由第三方机构对个人进行采样（多为血液、毛发）保存样本，将样本打包寄送到华大检测实验室 BISP项目，然后第三方机构调用BISP提供的保存送检单接口保存数据，BISP调用样本组接口存储样本，待检测完毕后报告组推送信息到BISP报告表中。</p>
+<p>​		第三方机构有两种获取报告的方式</p>
+<p>​			一、主动调用BISP报告查询接口</p>
+<p>​			二、提供接口我们主动推送报告</p>
+<p>​		保存送检单走统一接口，根据json参数中sampleType区分送检单类型，解析参数调用sap接口保存送检单。</p>
+<h2 id="四、随笔"><a href="#四、随笔" class="headerlink" title="四、随笔"></a>四、随笔</h2><p>​		毕业后刚入华大，对项目流程一类事情模模糊糊，仅凭着自己自学的SSM框架就出来上班，当时的BISP项目还是一个单体SSM项目，可以说是屎山代码，逻辑混乱，经过多位前辈的手，对接深圳市妇幼的Nifty送检单还是webservice接口，对接武汉市妇幼竟是武汉市妇幼那边给了我们一个mysql的账号密码直接定时查询他们新增的数据我们自己写入系统，幸运的是对接医院不多，尚有余力重整重构。</p>
+<p>​		在入职三个月之后，熟悉了业务流程，开始与当时的组长商量重构计划，既要保证现有业务正常，也要保证后续对接不再吃力。</p>
+<p>​		当时2019年中，BISP项目就我、A同事、组长三人，一边日常维护系统，一边写重构代码，当时运维也较为简单，观测一下日志，偶尔有特殊情况送检单无法录入，或者报告到达规定时间还未出时，联系上游项目组排查问题，的确数据我们组无法把控，依赖其他同事帮忙排查问题，我就像是一个传话人，或者是对方系统挂掉了，联系市妇幼负责人员排查问题。</p>
+<p>​		跑题了，应该讲讲重构的规划，如何重构，当时微服务很火，作者作为毕业不久的新人，只知道新技术高大上，问了一下组长可不可以上微服务springcloud这一套，其实自己内心是有私心的，不管需不需要，提升一下技术，过两年跳槽对自身有帮助，组长自身也比较摆烂，让我去研究一下怎么用也没有拒绝，于是我就开始上网看各种博客，可惜当时不知道阿里的nacos已经开源，我还在eureka跟consul中间犹豫，最后还是选择了eureka（别问我为什么，问就是当时其他人都说好，当时技术比较差没有深入研究）网关这个东西那还是更加不太理解了，于是组长说他来弄，最后选用了网关zuul，注册中心eureka，后面就是微服务拆分，一个总入口微服务bisp-all，样本服务，报告服务，mysql服务，oracle服务，sap服务，mq服务（此处拆分已经出了严重问题，可惜经验尚浅，无法反驳组长哈哈哈，后续意识到多此一举，配置个数据源的事情非要拆分，中间还多了feign网络io开销）</p>
+<p>​		最后到年底重构完成，虽然服务众多，但是逻辑链很清晰，修改历史代码轻松许多，直到19年底新冠开始了，由于作者是湖北的，刚到家就被封控起来了，华大开始做自己的新冠检测，开始做新冠送检单业务，那时候时间也比较赶，于是开始了在家熬夜居家远程办公。。。开始与sap的开发兄弟对接新冠送检单业务，之后湖北被封控三个月时间，期间在家对接国内各地新冠检测业务。</p>
+<p>​		后续20年中业务稳定，工作比较闲，闲来无暇研究一些新技术，接触到springcloudalibaba全家桶，在了解到nacos之前还有考虑用携程的apollo配置中心，但是这玩意太重了。。。 最后发现nacos完美解决。凑巧当时已经对接很多系统，部分市妇幼不允许我们给他们重推报告，他们要自己主动查询，当时多家一直高频率查询报告结果，每秒请求数太多，sap那边系统预警查询压力大，作者刚好看到sentinel，于是部署上配置查询报告接口qps为100。</p>
+<h2 id="五、总结"><a href="#五、总结" class="headerlink" title="五、总结"></a>五、总结</h2><p>​		首先还是感谢我的组长，从0开始手把手带我学习，然后了解了很多行业内基础知识，刚出社会就可以碰到这么好的领导作者运气实在是很好哈哈哈，在华大这两年成长了很多，学习了很多基础知识，难点也有同事讲解，生活上也跟同事相处的特别愉快，打牌喝酒唱歌玩乐，在华大这两年让我此生难忘，也让我技术有一个质的突破。</p>
+
+        </div>
+
+    
+
+</div>
+                <div class="footer">
+    <span>Copyright © 2022 Lin YouMing&#39;s blogs</span>
+    <!-- <span>Theme Designed By <a target="_blank" href="https://zheli.design/one-paper">這李設計</a></span> -->
+</div>
+
+
+<link rel="stylesheet" href="/css/a11y-dark.min.css">
+
+
+<script src="/js/highlight.min.js"></script>
+
+
+<script src="/js/highlightjs-line-numbers.js"></script>
+
+
+<script>
+    hljs.initHighlightingOnLoad();
+    hljs.initLineNumbersOnLoad();
+</script>
+
+            </div>
+        </div>
+    </body>
+</html>

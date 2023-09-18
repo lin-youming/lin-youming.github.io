@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+    <head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport" />
+    <link rel="alternate icon" type="image/png" href="/img/favicon.png">
+    <title>Lin YouMing&#39;s blogs | </title>
+    
+<link rel="stylesheet" href="/css/reset.css">
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    
+<link rel="stylesheet" href="/css/markdown.css">
+
+    
+<link rel="stylesheet" href="/css/fonts.css">
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+    <body>
+        <div class="paper">
+            <div class="paper-main">
+                
+                    <div class="header">
+    <a class="logo" href="/">Lin YouMing&#39;s blogs</a>
+    <ul class="nav">
+        
+        <li><a href="/">首页</a></li>
+        
+        <li><a href="/about">关于</a></li>
+        
+    </ul>
+</div>
+                
+                <div class="post-list">
+    
+    <div class="post">
+        <a class="post-title" href="/2023/08/18/BI/">BI报表项目</a>
+        <div class="post-except">
+            一、项目背景​		城投集团下主营业务九家驾校，每个驾校都是独立的系统，系统开发语言多样化有java与.net数据库使用有mysql与sqlserver，驾校系统数据不互通，数据可视性差，需要数据给到集团领导做重大决策，故而开发BI数据报表系统。
+二、系统描述​		系统使用阿里云DTS服务同步mysql 与sqlserver数据写入阿里云数仓AnalyticDB MySql中并创建九个库对应九家驾校数据，查询分类有招生数据、教务教学数据、库存数据。	
+​		该项目大量使用Com
+            <a class="read-more" href="/2023/08/18/BI/"> ... </a>
+        </div>
+        <div class="post-date">2023.08.18</div>
+    </div>
+    
+    <div class="post">
+        <a class="post-title" href="/2023/06/24/jvm_prevent_gc/">没有二十年功力，写不出这一行“看似无用”的代码！</a>
+        <div class="post-except">
+            序章这篇文章要从一个奇怪的注释说起，就是下面这张图：
+
+我们可以不用管具体的代码逻辑，只是单单看这个 for 循环。
+在循环里面，专门有个变量 j，来记录当前循环次数。
+第一次循环以及往后每 1000 次循环之后，进入一个 if 逻辑。
+在这个 if 逻辑之上，标注了一个注释：prevent gc.
+prevent，这个单词如果不认识的同学记一下，考试肯定要考的：
+这个注释翻译一下就是：防止 GC 线程进行垃圾回收。
+具体的实现逻辑是这样的：
+
+核心逻辑其实就是这样一行代码：
+            <a class="read-more" href="/2023/06/24/jvm_prevent_gc/"> ... </a>
+        </div>
+        <div class="post-date">2023.06.24</div>
+    </div>
+    
+    <div class="post">
+        <a class="post-title" href="/2023/06/10/mysql_indexes_b/">Mysql索引为什么使用B+树？</a>
+        <div class="post-except">
+            一、前言在我们的印象中，mysql数据表里无非就是存储一行行的数据。跟个excel似的。
+直接遍历这一行行数据，性能就是O(n)，比较慢。为了加速查询，使用了B+树来做索引，将查询性能优化到了**O(lg(n))**。
+但问题就来了，查询数据性能在 lg(n) 级别的数据结构有很多，比如redis的zset里用到的跳表，也是**lg(n)**，并且实现还贼简单。
+那为什么mysql的索引，不使用跳表呢？
+我们今天就来聊聊这个话题。
+B+树的结构之前的一篇文章里，已经提到过B+
+            <a class="read-more" href="/2023/06/10/mysql_indexes_b/"> ... </a>
+        </div>
+        <div class="post-date">2023.06.10</div>
+    </div>
+    
+    <div class="post">
+        <a class="post-title" href="/2023/05/03/sharding_sphere/">分库分表</a>
+        <div class="post-except">
+            前言本文将为您介绍 ShardingSphere 的一些基础特性和架构组成，以及在 Springboot 环境下通过 JAVA编码 和 Yml配置 两种方式快速实现分库分表。
+
+
+一、什么是 ShardingSphere？shardingsphere 是一款开源的分布式关系型数据库中间件，为 Apache 的顶级项目。其前身是 sharding-jdbc 和 sharding-proxy 的两个独立项目，后来在 2018 年合并成了一个项目，并正式更名为 ShardingSp
+            <a class="read-more" href="/2023/05/03/sharding_sphere/"> ... </a>
+        </div>
+        <div class="post-date">2023.05.03</div>
+    </div>
+    
+    <div class="post">
+        <a class="post-title" href="/2022/11/20/thread_pool/">线程池详解</a>
+        <div class="post-except">
+            一、什么是线程池线程池其实是一种池化的技术的实现，池化技术的核心思想其实就是实现资源的一个复用，避免资源的重复创建和销毁带来的性能开销。在线程池中，线程池可以管理一堆线程，让线程执行完任务之后不会进行销毁，而是继续去处理其它线程已经提交的任务。
+线程池的好处:
+
+降低资源消耗。通过重复利用已创建的线程降低线程创建和销毁造成的消耗。
+提高响应速度。当任务到达时，任务可以不需要等到线程创建就能立即执行。
+提高线程的可管理性。线程是稀缺资源，如果无限制的创建，不仅会消耗系统资源，还
+            <a class="read-more" href="/2022/11/20/thread_pool/"> ... </a>
+        </div>
+        <div class="post-date">2022.11.20</div>
+    </div>
+    
+    <div class="post">
+        <a class="post-title" href="/2022/07/10/mysql_indexes/">MySQL索引优化20招</a>
+        <div class="post-except">
+            前言
+索引的相信大家都听说过，但是真正会用的又有几人？平时工作中写SQL真的会考虑到这条SQL如何能够用上索引，如何能够提升执行效率？
+此篇文章详细的讲述了索引优化的几个原则，只要在工作中能够随时应用到，相信你写出的SQL一定是效率最高，最牛逼的。
+
+索引优化规则1、like语句的前导模糊查询不能使用索引select * from doc where title like &#39;%XX&#39;；   --不能使用索引
+select * from doc where ti
+            <a class="read-more" href="/2022/07/10/mysql_indexes/"> ... </a>
+        </div>
+        <div class="post-date">2022.07.10</div>
+    </div>
+    
+    <div class="post">
+        <a class="post-title" href="/2022/01/10/full_table_scan/">聊聊MySQL全表扫描</a>
+        <div class="post-except">
+            前言查询优化器是 MySQL 的核心子系统之一，成本计算又是查询优化器的核心逻辑。
+全表扫描成本作为参照物，用于和表的其它访问方式的成本做对比。任何一种访问方式，只要成本超过了全表扫描成本，就不会被使用。
+基于全表扫描成本的重要地位，要讲清楚 MySQL 的成本计算逻辑，从全表扫描成本计算开始是个不错的选择。
+
+本文内容基于 MySQL 8.0.29 源码。
+
+目录
+
+
+概述
+
+
+
+计算公式
+
+
+
+统计信息
+
+
+
+数据页在内存中的比例
+
+
+
+成本常数
+
+
+
+总结
+
+
+
+正文
+
+            <a class="read-more" href="/2022/01/10/full_table_scan/"> ... </a>
+        </div>
+        <div class="post-date">2022.01.10</div>
+    </div>
+    
+    <div class="post">
+        <a class="post-title" href="/2021/06/05/master_slave/">糟了，数据库主从延迟了！</a>
+        <div class="post-except">
+            前言在实际的生产环境中，由单台MySQL作为独立的数据库是完全不能满足实际需求的，无论是在安全性，高可用性以及高并发等各个方面
+因此，一般来说都是通过集群主从复制（Master-Slave）的方式来同步数据，再通过读写分离（MySQL-Proxy）来提升数据库的并发负载能力进行部署与实施
+总结MySQL主从集群带来的作用是：
+
+提高数据库负载能力，主库执行读写任务（增删改），备库仅做查询。
+提高系统读写性能、可扩展性和高可用性。
+数据备份与容灾，备库在异地，主库不存在了，备库
+            <a class="read-more" href="/2021/06/05/master_slave/"> ... </a>
+        </div>
+        <div class="post-date">2021.06.05</div>
+    </div>
+    
+    <div class="post">
+        <a class="post-title" href="/2021/05/02/AI/">三分钟搞清人工智能、机器学习与深度学习</a>
+        <div class="post-except">
+            人工智能（Artificial Intelligence）
+1956年，几个计算机科学家相聚在达特茅斯会议，提出了“人工智能”的概念，梦想着用当时刚刚出现的计算机来构造复杂的、拥有与人类智慧同样本质特性的机器。
+其后，人工智能就一直萦绕于人们的脑海之中，并在科研实验室中慢慢孵化。之后的几十年，人工智能一直在两极反转，或被称作人类文明耀眼未来的预言，或被当成技术疯子的狂想扔到垃圾堆里。直到2012年之前，这两种声音还在同时存在。
+2012年以后，得益于数据量的上涨、运算力的提升
+            <a class="read-more" href="/2021/05/02/AI/"> ... </a>
+        </div>
+        <div class="post-date">2021.05.02</div>
+    </div>
+    
+    <div class="post">
+        <a class="post-title" href="/2021/04/10/bisp/">BISP项目杂记</a>
+        <div class="post-except">
+            一、前言​		大家好，这篇文章主要是记录一下自己个人的项目经历以及一些问题引发的思考，也是作者毕业后接触的第一个大型项目，记录一下这些年的成长。
+二、项目背景​		目前作者服务于华大基因，所在IT部门负责华大基因的检测业务，包含无创产前、耳聋基因、全基因组、新冠等检测项目，检测项目五花八门，就不在此一一列举了。
+​		因部门内项目组划分为多个报告组、样本组等， BISP项目组主要负责对外部提供接口以及对集团内部其他部门提供接口。
+三、项目介绍​		
+​		整体流程由第三方机构
+            <a class="read-more" href="/2021/04/10/bisp/"> ... </a>
+        </div>
+        <div class="post-date">2021.04.10</div>
+    </div>
+    
+</div>
+
+<div class="paginator">
+    <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><a class="extend next" rel="next" href="/page/2/">下一页</a>
+</div>
+
+                <div class="footer">
+    <span>Copyright © 2022 Lin YouMing&#39;s blogs</span>
+    <!-- <span>Theme Designed By <a target="_blank" href="https://zheli.design/one-paper">這李設計</a></span> -->
+</div>
+
+
+<link rel="stylesheet" href="/css/a11y-dark.min.css">
+
+
+<script src="/js/highlight.min.js"></script>
+
+
+<script src="/js/highlightjs-line-numbers.js"></script>
+
+
+<script>
+    hljs.initHighlightingOnLoad();
+    hljs.initLineNumbersOnLoad();
+</script>
+
+            </div>
+        </div>
+    </body>
+</html>

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+    <head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport" />
+    <link rel="alternate icon" type="image/png" href="/img/favicon.png">
+    <title>Lin YouMing&#39;s blogs | </title>
+    
+<link rel="stylesheet" href="/css/reset.css">
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    
+<link rel="stylesheet" href="/css/markdown.css">
+
+    
+<link rel="stylesheet" href="/css/fonts.css">
+
+<meta name="generator" content="Hexo 6.3.0"></head>
+    <body>
+        <div class="paper">
+            <div class="paper-main">
+                
+                    <div class="post-header">
+    <a class="logo" href="/">Lin YouMing&#39;s blogs</a>
+    <a class="go-home" href="/">
+        <svg width="8" height="14" viewBox="0 0 8 14">
+            <path d="M7 1L1 7l6 6" stroke="#000" stroke-width="2" fill="none" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </a>
+</div>
+                
+                <div class="post-main">
+
+    
+    
+        <div class="post-main-title">
+            没有二十年功力，写不出这一行“看似无用”的代码！
+        </div>
+        <div class="post-meta">
+            2023-06-24
+        </div>
+        <div class="post-md">
+            <h2 id="序章"><a href="#序章" class="headerlink" title="序章"></a><strong>序章</strong></h2><p>这篇文章要从一个奇怪的注释说起，就是下面这张图：</p>
+<p><img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/640.png"></p>
+<p>我们可以不用管具体的代码逻辑，只是单单看这个 for 循环。</p>
+<p>在循环里面，专门有个变量 j，来记录当前循环次数。</p>
+<p>第一次循环以及往后每 1000 次循环之后，进入一个 if 逻辑。</p>
+<p>在这个 if 逻辑之上，标注了一个注释：prevent gc.</p>
+<p>prevent，这个单词如果不认识的同学记一下，考试肯定要考的：</p>
+<p>这个注释翻译一下就是：防止 GC 线程进行垃圾回收。</p>
+<p>具体的实现逻辑是这样的：</p>
+<p><img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/641.png"></p>
+<p>核心逻辑其实就是这样一行代码：</p>
+<pre><code class="java">Thread.sleep(0);
+</code></pre>
+<p>这样就能实现 prevent gc 了？</p>
+<p>懵逼吗？</p>
+<p>懵逼就对了，懵逼就说明值得把玩把玩。</p>
+<p>这个代码片段，其实是出自 RocketMQ 的源码：</p>
+<pre><code class="java">org.apache.rocketmq.store.logfile.DefaultMappedFile#warmMappedFile
+</code></pre>
+<p><img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/642.png"></p>
+<p>事先需要说明的是，我并没有找到写这个代码的人问他的意图是什么，所以我只有基于自己的理解去推测他的意图。如果推测的不对，还请多多指教。</p>
+<p>虽然这是 RocketMQ 的源码，但是基于我的理解，这个小技巧和 RocketMQ 框架没有任何关系，完全可以脱离于框架存在。</p>
+<p>我给出的修改意见是这样的：</p>
+<img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/643.png" style="zoom:80%;" />
+
+<p>把 int 修改为 long，然后就可以直接把 for 循环里面的 if 逻辑删除掉了。</p>
+<img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/644.png" style="zoom:100%;" />
+
+<p>这样一看是不是更加懵逼了？</p>
+<p>不要慌，接下来，我给你抽丝剥个茧。</p>
+<p>另外，在“剥茧”之前，我先说一下结论：</p>
+<ul>
+<li>提出这个修改方案的理论立足点是 Java 的安全点相关的知识，也就是 safepoint。</li>
+<li>官方最后没有采纳这个修改方案。</li>
+<li>官方采没采纳不重要，重要的是我高低得给你“剥个茧”。</li>
+</ul>
+<img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/645.png" style="zoom:30%;" />
+
+
+
+<h2 id="探索"><a href="#探索" class="headerlink" title="探索"></a><strong>探索</strong></h2><p>当我知道这个代码片段是属于 RocketMQ 的时候，我想到的第一个点就是从代码提交记录中寻找答案。</p>
+<p>看提交者是否在提交代码的时候说明了自己的意图。</p>
+<p>于是我把代码拉了下来，一看提交记录是这样的：</p>
+<p><img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/646.png"></p>
+<p>我就知道这里不会有答案了。</p>
+<p>因为这个类第一次提交的时候就已经包含了这个逻辑，而且对应这次提交的代码也非常多，并没有特别说明对应的功能。</p>
+<p>从提交记录上没有获得什么有用的信息。</p>
+<p>于是我把目光转向了 github 的 issue，拿着关键词 prevent gc 搜索了一番。</p>
+<p>除了第一个链接之外，没有找到什么有用的信息：</p>
+<p><img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/647.png"></p>
+<p>而第一个链接对应的 issues 是这个：</p>
+<blockquote>
+<p><a target="_blank" rel="noopener" href="https://github.com/apache/rocketmq/issues/4902">https://github.com/apache/rocketmq/issues/4902</a></p>
+</blockquote>
+<p>这个 issues 其实就是我们在讨论这个问题的过程中提出来的，也就是前面出现的修改方案：</p>
+<p><img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/648.png"></p>
+<p>也就是说，我想通过源码或者 github 找到这个问题权威的回答，是找不到了。</p>
+<p>于是我又去了这个神奇的网站，在里面找到了这个 2018 年提出的问题：</p>
+<blockquote>
+<p><a target="_blank" rel="noopener" href="https://stackoverflow.com/questions/53284031/why-thread-sleep0-can-prevent-gc-in-rocketmq">https://stackoverflow.com/questions/53284031/why-thread-sleep0-can-prevent-gc-in-rocketmq</a></p>
+</blockquote>
+<img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/649.png" style="zoom:80%;" />
+
+<p>问题和我们的问题一模一样，但是这个问题下面就这一个回答：</p>
+<img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/650.png" style="zoom:80%;" />
+
+<p>这个回答并不好，因为我觉得没答到点上，但是没关系，我刚好可以把这个回答作为抓手，把差的这一点拉通对齐一下，给它赋能。</p>
+<p>先看这个回答的第一句话：It does not（它没有）。</p>
+<p>问题就来了：“它”是谁？“没有”什么？</p>
+<p>“它”，指的就是我们前面出现的代码。</p>
+<p>“没有”，是说没有防止 GC 线程进行垃圾回收。</p>
+<p>这个的回答说：通过调用 Thread.sleep(0) 的目的是为了让 GC 线程有机会被操作系统选中，从而进行垃圾清理的工作。它的副作用是，可能会更频繁地运行 GC，毕竟你每 1000 次迭代就有一次运行 GC 的机会，但是好处是可以防止长时间的垃圾收集。</p>
+<p>换句话说，这个代码是想要“触发”GC，而不是“避免”GC，或者说是“避免”时间很长的 GC。从这个角度来说，程序里面的注释其实是在撒谎或者没写完整。</p>
+<p>不是 prevent gc，而是对 gc 采取了“打散运行，削峰填谷”的思想，从而 prevent long time gc。</p>
+<p>但是你想想，我们自己编程的时候，正常情况下从来也没冒出过“这个地方应该触发一下 GC”这样想法吧？</p>
+<p>因为我们知道，Java 程序员来说，虚拟机有自己的 GC 机制，我们不需要像写 C 或者 C++ 那样得自己管理内存，只要关注于业务代码即可，并没有特别注意 GC 机制。</p>
+<p>那么本文中最关键的一个问题就来了：<strong>为什么这里要在代码里面特别注意 GC，想要尝试“触发”GC 呢？</strong></p>
+<img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/651.png" style="zoom:80%;" />
+
+<p>先说答案：safepoint，安全点。</p>
+<p>关于安全点的描述，我们可以看看《深入理解JVM虚拟机(第三版)》的 3.4.2 小节：</p>
+<img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/652.png" style="zoom:67%;" />
+
+<p>注意书里面的描述：</p>
+<blockquote>
+<p>有了安全点的设定，也就决定了用户程序执行时并非在代码指令流的任意位置都能够停顿下来开始垃圾收集，而是强制要求必须执行到达安全点后才能够暂停。</p>
+</blockquote>
+<p>换言之：没有到安全点，是不能 STW，从而进行 GC 的。</p>
+<p>如果在你的认知里面 GC 线程是随时都可以运行的。那么就需要刷新一下认知了。</p>
+<p>接着，让我们把目光放到书的 5.2.8 小节：由安全点导致长时间停顿。</p>
+<p>里面有这样一段话：</p>
+<img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/653.png" style="zoom:67%;" />
+
+<p>我把划线的部分单独拿出来，你仔细读一遍：</p>
+<blockquote>
+<p>是HotSpot虚拟机为了避免安全点过多带来过重的负担，对循环还有一项优化措施，认为循环次数较少的话，执行时间应该也不会太长，所以使用int类型或范围更小的数据类型作为索引值的循环默认是不会被放置安全点的。这种循环被称为可数循环（Counted Loop），相对应地，使用long或者范围更大的数据类型作为索引值的循环就被称为不可数循环（Uncounted Loop），将会被放置安全点。</p>
+</blockquote>
+<p>意思就是在可数循环（Counted Loop）的情况下，HotSpot 虚拟机搞了一个优化，就是等循环结束之后，线程才会进入安全点。</p>
+<p>反过来说就是：循环如果没有结束，线程不会进入安全点，GC 线程就得等着当前的线程循环结束，进入安全点，才能开始工作。</p>
+<p>什么是可数循环（Counted Loop）？</p>
+<p>书里面的这个案例来自于这个链接：</p>
+<blockquote>
+<p><a target="_blank" rel="noopener" href="https://juejin.cn/post/6844903878765314061">https://juejin.cn/post/6844903878765314061</a><br>HBase实战：记一次Safepoint导致长时间STW的踩坑之旅</p>
+</blockquote>
+<p>如果你有时间，我建议你把这个案例完整的看一下，我只截取问题解决的部分：</p>
+<img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/654.png" style="zoom:90%;" />
+
+<p>截图中的 while(i &lt; end) 就是一个可数循环，由于执行这个循环的线程需要在循环结束后才进入 Safepoint，所以先进入 Safepoint 的线程需要等待它。从而影响到 GC 线程的运行。</p>
+<p>所以，修改方案就是把 int 修改为 long。</p>
+<p>原理就是让其变为不可数循环（Uncounted Loop），从而不用等循环结束，在循环期间就能进入 Safepoint。</p>
+<p>接着我们再把目光拉回到这里</p>
+<p><img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/655.png"></p>
+<p>这个循环也是一个可数循环。</p>
+<p>Thread.sleep(0) 这个代码看起来莫名其妙，但是我是不是可以大胆的猜测一下：故意写这个代码的人，是不是为了在这里放置一个 Safepoint 呢，以达到避免 GC 线程长时间等待，从而加长 stop the world 的时间的目的？</p>
+<p>所以，我接下来只需要找到 sleep 会进入 Safepoint 的证据，就能证明我的猜想。</p>
+<p>你猜怎么着？</p>
+<p>本来是想去看一下源码，结果啪的一下，在源码的注释里面，直接找到了：</p>
+<blockquote>
+<p><a target="_blank" rel="noopener" href="https://hg.openjdk.java.net/jdk8u/jdk8u/hotspot/file/tip/src/share/vm/runtime/safepoint.cpp">https://hg.openjdk.java.net/jdk8u/jdk8u/hotspot/file/tip/src/share/vm/runtime/safepoint.cpp</a></p>
+</blockquote>
+<img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/656.png" style="zoom:80%;" />
+
+<p>注释里面说，在程序进入 Safepoint 的时候， Java 线程可能正处于框起来的五种不同的状态，针对不同的状态有不同的处理方案。</p>
+<p>本来我想一个个的翻译的，但是信息量太大，我消化起来有点费劲儿，所以就不乱说了。</p>
+<p>主要聚焦于和本文相关的第二点：Running in native code。</p>
+<blockquote>
+<p>When returning from the native code, a Java thread must check the safepoint _state to see if we must block.</p>
+</blockquote>
+<p>第一句话，就是答案，意思就是一个线程在运行 native 方法后，返回到 Java 线程后，必须进行一次 safepoint 的检测。</p>
+<p>同时我在知乎看到了 R 大的这个回答，里面有这样一句，也印证了这个点：</p>
+<blockquote>
+<p><a target="_blank" rel="noopener" href="https://www.zhihu.com/question/29268019/answer/43762165">https://www.zhihu.com/question/29268019/answer/43762165</a></p>
+</blockquote>
+<img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/657.png" style="zoom:80%;" />
+
+<p>那么接下来，就是见证奇迹的时刻了：</p>
+<p><img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/658.png"></p>
+<p>根据 R 大的说法：正在执行 native 函数的线程看作“已经进入了safepoint”，或者把这种情况叫做“在safe-region里”。</p>
+<p>sleep 方法就是一个 native 方法，你说巧不巧？</p>
+<p>所以，到这里我们可以确定的是：调用 sleep 方法的线程会进入 Safepoint。</p>
+<p>另外，我还找到了一个 2013 年的 R 大关于类似问题讨论的帖子：</p>
+<blockquote>
+<p><a target="_blank" rel="noopener" href="https://hllvm-group.iteye.com/group/topic/38232?page=2">https://hllvm-group.iteye.com/group/topic/38232?page=2</a></p>
+</blockquote>
+<img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/659.png" style="zoom:80%;" />
+
+<p>这里就直接点名道姓的指出了：Thread.sleep(0).</p>
+<p>这让我想起以前有个面试题问：Thread.sleep(0) 有什么用。</p>
+<p>当时我就想：这题真难（S）啊（B）。现在发现原来是我道行不够，小丑竟是我自己。</p>
+<p>还真的是有用。</p>
+<h2 id="实践"><a href="#实践" class="headerlink" title="实践"></a><strong>实践</strong></h2><p>前面其实说的都是理论。</p>
+<p>这一部分我们来拿代码实践跑上一把，就拿我之前分享过的<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=Mzg3NjU3NTkwMQ==&mid=2247509056&idx=1&sn=1d8383e50127b6b45186d243b92f5037&scene=21#wechat_redirect">《真是绝了！这段被JVM动了手脚的代码！》</a>文章里面的案例。</p>
+<pre><code class="java">public class MainTest &#123;
+
+    public static AtomicInteger num = new AtomicInteger(0);
+
+    public static void main(String[] args) throws InterruptedException &#123;
+        Runnable runnable=()-&gt;&#123;
+            for (int i = 0; i &lt; 1000000000; i++) &#123;
+                num.getAndAdd(1);
+            &#125;
+            System.out.println(Thread.currentThread().getName()+&quot;执行结束!&quot;);
+        &#125;;
+
+        Thread t1 = new Thread(runnable);
+        Thread t2 = new Thread(runnable);
+        t1.start();
+        t2.start();
+        Thread.sleep(1000);
+        System.out.println(&quot;num = &quot; + num);
+    &#125;
+&#125;
+</code></pre>
+<p>这个代码，你直接粘到你的 idea 里面去就能跑。</p>
+<p>按照代码来看，主线程休眠 1000ms 后就会输出结果，但是实际情况却是主线程一直在等待 t1,t2 执行结束才继续执行。</p>
+<p><img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/660.png"></p>
+<p>这个循环就属于前面说的可数循环（Counted Loop）。</p>
+<p>这个程序发生了什么事情呢？</p>
+<ul>
+<li>1.启动了两个长的、不间断的循环（内部没有安全点检查）。</li>
+<li>2.主线程进入睡眠状态 1 秒钟。</li>
+<li>3.在1000 ms之后，JVM尝试在Safepoint停止，以便Java线程进行定期清理，但是直到可数循环完成后才能执行此操作。</li>
+<li>4.主线程的 Thread.sleep 方法从 native 返回，发现安全点操作正在进行中，于是把自己挂起，直到操作结束。</li>
+</ul>
+<p>所以，当我们把 int 修改为 long 后，程序就表现正常了：</p>
+<p><img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/661.png"></p>
+<p>受到 RocketMQ 源码的启示，我们还可以直接把它的代码拿过来：</p>
+<p><img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/662.png"></p>
+<p>这样，即使 for 循环的对象是 int 类型，也可以按照预期执行。因为我们相当于在循环体中插入了 Safepoint。</p>
+<p>另外，我通过<strong>不严谨的方式</strong>测试了一下两个方案的耗时：</p>
+<img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/663.png" style="zoom:80%;" />
+
+<p>在我的机器上运行了几次，时间上都差距不大。</p>
+<p>但是要论逼格的话，还得是右边的 prevent gc 的写法。没有二十年功力，写不出这一行“看似无用”的代码！</p>
+<h2 id="额外提一句"><a href="#额外提一句" class="headerlink" title="额外提一句"></a><strong>额外提一句</strong></h2><p>再说一个也是由前面的 RocketMQ 的源码引起的一个思考：</p>
+<p><img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/664.png"></p>
+<p>这个方法是在干啥？</p>
+<p>预热文件，按照 4K 的大小往 byteBuffer 放 0，对文件进行预热。</p>
+<blockquote>
+<p>byteBuffer.put(i, (byte) 0);</p>
+</blockquote>
+<p>为什么我会对这个 4k 的预热比较敏感呢？</p>
+<p>去年的天池大赛有这样的一个赛道：</p>
+<blockquote>
+<p><a target="_blank" rel="noopener" href="https://tianchi.aliyun.com/competition/entrance/531922/information">https://tianchi.aliyun.com/competition/entrance/531922/information</a></p>
+</blockquote>
+<img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/665.png" style="zoom:80%;" />
+
+<p>其中有两个参赛选大佬都提到了“文件预热”的思路。</p>
+<p>我把链接放在下面了，有兴趣的可以去细读一下：</p>
+<blockquote>
+<p><a target="_blank" rel="noopener" href="https://tianchi.aliyun.com/forum/postDetail?spm=5176.12586969.0.0.13714154spKjib&postId=300892">https://tianchi.aliyun.com/forum/postDetail?spm=5176.12586969.0.0.13714154spKjib&amp;postId=300892</a></p>
+</blockquote>
+<img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/666.png" style="zoom:80%;" />
+
+<img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/667.png" style="zoom:80%;" />
+
+<blockquote>
+<p><a target="_blank" rel="noopener" href="https://tianchi.aliyun.com/forum/postDetail?spm=5176.21852664.0.0.4c353a5a06PzVZ&postId=313716">https://tianchi.aliyun.com/forum/postDetail?spm=5176.21852664.0.0.4c353a5a06PzVZ&amp;postId=313716</a></p>
+</blockquote>
+<img src="https://pic-1301150022.cos.ap-guangzhou.myqcloud.com/jvmImg/668.png" style="zoom:80%;" />
+
+<p>好了，本文的技术部分就到这里啦。</p>
+
+        </div>
+
+    
+
+</div>
+                <div class="footer">
+    <span>Copyright © 2022 Lin YouMing&#39;s blogs</span>
+    <!-- <span>Theme Designed By <a target="_blank" href="https://zheli.design/one-paper">這李設計</a></span> -->
+</div>
+
+
+<link rel="stylesheet" href="/css/a11y-dark.min.css">
+
+
+<script src="/js/highlight.min.js"></script>
+
+
+<script src="/js/highlightjs-line-numbers.js"></script>
+
+
+<script>
+    hljs.initHighlightingOnLoad();
+    hljs.initLineNumbersOnLoad();
+</script>
+
+            </div>
+        </div>
+    </body>
+</html>
